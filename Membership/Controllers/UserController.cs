@@ -85,7 +85,7 @@ namespace Membership.Controllers
         /// <param name="userInfoDto"></param>
         /// <response code = "202" > Updated </response >
         /// <response code = "400" > BadRequest </response >
-        [Route("", Name = "Update_User_Password")]
+        [Route("Password", Name = "Update_User_Password")]
         [HttpPut]
         public async Task<IActionResult> UpdateUserPassword([FromBody] UserInfoDto userInfoDto)
         {
