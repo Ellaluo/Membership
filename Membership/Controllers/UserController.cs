@@ -31,6 +31,11 @@ namespace Membership.Controllers
         [HttpPost, HttpOptions]
         public async Task<IActionResult> Authenticate([FromBody] UserInfoDto userInfoDto)
         {
+            if (!userInfoDto.Client.Equals("A") && !userInfoDto.Client.Equals("B") && !userInfoDto.Client.Equals("C"))
+            {
+                return BadRequest("Invalid client");
+            }
+
             if (string.IsNullOrEmpty(userInfoDto.Username) || string.IsNullOrEmpty(userInfoDto.Password))
                 return BadRequest("Invalid username or password");
             
@@ -47,11 +52,6 @@ namespace Membership.Controllers
                 return Unauthorized();
             }
             
-            if (!userInfoDto.Client.Equals("A") && !userInfoDto.Client.Equals("B") && !userInfoDto.Client.Equals("C"))
-            {
-                return BadRequest("Invalid client");
-            }
-
             var tokenString = _service.GenerateToken(userInfoDto.Username, userInfoDto.Client);
             return Ok(tokenString);
         }
