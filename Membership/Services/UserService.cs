@@ -29,7 +29,7 @@ namespace Membership.Services
             _mapper = config.CreateMapper();
         }
 
-        public byte[] Sha256ComputeHash(string password, byte[] passwordSalt)
+        private byte[] Sha256ComputeHash(string password, byte[] passwordSalt)
         {
             byte[] passwordHash;
             using (var hmac = new System.Security.Cryptography.HMACSHA256(passwordSalt))
@@ -40,7 +40,7 @@ namespace Membership.Services
             return passwordHash;
         }
 
-        public byte[] Sha256GenerateRandomSalt()
+        private byte[] Sha256GenerateRandomSalt()
         {
             byte[] passwordSalt;
             using (var hmac = new System.Security.Cryptography.HMACSHA256())
@@ -54,7 +54,6 @@ namespace Membership.Services
 
         public bool ValidateUser(string username, string password, UserInfoEntity userInfoEntity)
         {
-            // TODO: get salt, generate passwordhash, compare
             var passwordSalt = userInfoEntity.PasswordSalt;
             var expectedPasswordHash = Sha256ComputeHash(password, passwordSalt);
             var actualPasswordHash = userInfoEntity.PasswordHash;
@@ -82,7 +81,7 @@ namespace Membership.Services
             return validateResult;
         }
 
-        public string GenerateToken(string username)
+        public string GenerateToken(string username, string cilent)
         {
             var symmetricKey = Convert.FromBase64String(_identitySettings.Value.Secret);
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -93,7 +92,7 @@ namespace Membership.Services
                     new Claim(ClaimTypes.NameIdentifier, username),
                     new Claim(ClaimTypes.Role, "Administrator")
                 }),
-                Audience = "A",
+                Audience = cilent,
                 Issuer = "Membership",
                 Expires = DateTime.Now.AddSeconds(_identitySettings.Value.TokenLifeTime),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(symmetricKey), SecurityAlgorithms.HmacSha256)
@@ -108,7 +107,6 @@ namespace Membership.Services
             {
                 return ex.Message;
             }
-
         }
 
         public async Task<UserInfoDto> GetUserByUsernameAsync(string username)
@@ -118,40 +116,34 @@ namespace Membership.Services
             return userDto;
         }
 
-        public async Task<bool> CheckUserExsits(string username)
-        {
-            // TODO: check if exsit
-            var exsitUserInfo = await _repository.GetUserByUsernameAsync(username);
-            // TODO: throw what exception
-            return exsitUserInfo != null;
-        }
-
         public async Task<UserInfoDto> CreateUserAsync(UserInfoDto userInfoDto)
         {
-            // TODO: how to deal with Id
-
-            // TODO: hash password
+            // Generate Salt and Hash for password
             var passwordSalt = Sha256GenerateRandomSalt();
             var passwordHash = Sha256ComputeHash(userInfoDto.Password, passwordSalt);
 
-            // TODO: map UserInfoDto into UserInfoEntity
-            
+            // Map UserInfoDto into UserInfoEntity
             var userInfoEntity = _mapper.Map<UserInfoEntity>(userInfoDto);
             userInfoEntity.PasswordSalt = passwordSalt;
             userInfoEntity.PasswordHash = passwordHash;
 
-            // TODO: save hashed password into database
+            // Save salt and hashed password into database
             var result = await _repository.CreateUserAsync(userInfoEntity);
             // TODO: throw what exception
-            //if (result != 1) return;
+            if (result != 1) return null;
+
+            // Get new UserInfoEntity
             var newUserInfoEntity = await _repository.GetUserByUsernameAsync(userInfoEntity.Username);
-            // TODO: map UserInfoEntity into UserInfoDto
+
+            // Map UserInfoEntity into UserInfoDto
             var newUserInfoDto = _mapper.Map<UserInfoDto>(newUserInfoEntity);
+
+            // Clean password
             newUserInfoDto.Password = null;
             return newUserInfoDto;
         }
 
-        public async void UpdateUserPasswordAsync(UserInfoDto userInfoDto)
+        public async Task<int> UpdateUserPasswordAsync(UserInfoDto userInfoDto)
         {
             var passwordSalt = Sha256GenerateRandomSalt();
             var passwordHash = Sha256ComputeHash(userInfoDto.Password, passwordSalt);
@@ -160,26 +152,23 @@ namespace Membership.Services
             userInfoEntity.PasswordSalt = passwordSalt;
             userInfoEntity.PasswordHash = passwordHash;
             var result = await _repository.UpdatePasswordAsync(userInfoEntity);
-            // TODO: throw what exception
-            //if (result != 1) return;
+            return result;
         }
 
-        public async void ActivateAsync(UserInfoDto userInfoDto, string clientId)
+        public async Task<int> ActivateAsync(UserInfoDto userInfoDto, string clientId)
         {
             var userInfoEntity = _mapper.Map<UserInfoEntity>(userInfoDto);
             SetClientActive(userInfoEntity, clientId, true);
             var result = await _repository.UpdateAsync(userInfoEntity);
-            // TODO: throw what exception
-            //if (result != 1) return;
+            return result;
         }
 
-        public async void DeActivateAsync(UserInfoDto userInfoDto, string clientId)
+        public async Task<int> DeActivateAsync(UserInfoDto userInfoDto, string clientId)
         {
             var userInfoEntity = _mapper.Map<UserInfoEntity>(userInfoDto);
             SetClientActive(userInfoEntity, clientId, false);
             var result = await _repository.UpdateAsync(userInfoEntity);
-            // TODO: throw what exception
-            //if (result != 1) return;
+            return result;
         }
 
         private void SetClientActive(UserInfoEntity userInfoDto, string clientId, bool active)

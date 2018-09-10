@@ -22,6 +22,10 @@ namespace Membership.Controllers
         /// <summary>
         ///     Authenticate User Endpoint
         /// </summary>
+        /// <param name="userInfoDto"></param>
+        /// <response code = "200"> Ok </response>
+        /// <response code = "400"> BadRequest </response>
+        /// <response code = "401"> Unauthorized </response>
         [AllowAnonymous]
         [Route("Authenticate", Name = "Authenticate_User")]
         [HttpPost, HttpOptions]
@@ -29,18 +33,26 @@ namespace Membership.Controllers
         {
             if (string.IsNullOrEmpty(userInfoDto.Username) || string.IsNullOrEmpty(userInfoDto.Password))
                 return BadRequest("Invalid username or password");
-            if (!await _service.CheckUserExsits(userInfoDto.Username))
+            
+            var existingUserInfoDto = await _service.GetUserByUsernameAsync(userInfoDto.Username);
+            if (existingUserInfoDto == null)
             {
                 return Unauthorized();
             }
-            // TODO: check username and password valid
+            
             var validateResult = await _service.ValidateUserAsync(userInfoDto.Username, userInfoDto.Password);
-            // TODO: generate JWT token
+            
             if (!validateResult)
             {
                 return Unauthorized();
             }
-            var tokenString = _service.GenerateToken(userInfoDto.Username);
+            
+            if (!userInfoDto.Client.Equals("A") && !userInfoDto.Client.Equals("B") && !userInfoDto.Client.Equals("C"))
+            {
+                return BadRequest("Invalid client");
+            }
+
+            var tokenString = _service.GenerateToken(userInfoDto.Username, userInfoDto.Client);
             return Ok(tokenString);
         }
 
@@ -48,21 +60,22 @@ namespace Membership.Controllers
         ///     Create User Endpoint
         /// </summary>
         /// <param name="userInfoDto"></param>
-        /// <returns>Get_User Route</returns>
-        /// <response code = "201">Created</response>
+        /// <response code = "201"> Created </response>
+        /// <response code = "400"> BadRequest </response>
+        /// <response code = "409"> Conflict </response>
         [AllowAnonymous]
         [Route("", Name = "Create_New_User")]
         [HttpPost, HttpOptions]
         public async Task<IActionResult> CreateUser([FromBody] UserInfoDto userInfoDto)
         {
-            if (await _service.CheckUserExsits(userInfoDto.Username))
+            var existingUserInfoDto = await _service.GetUserByUsernameAsync(userInfoDto.Username);
+            if (existingUserInfoDto != null)
             {
                 return Conflict();
             }
-
-            // TODO: Id provided or not
+            
             var result = await _service.CreateUserAsync(userInfoDto);
-            // TODO: return userInfoDto or return route
+            if (result == null) return BadRequest(); 
             return Ok(result);
         }
 
@@ -70,66 +83,79 @@ namespace Membership.Controllers
         ///     Update Password Endpoint
         /// </summary>
         /// <param name="userInfoDto"></param>
-        /// < returns > Get_User Route</returns>
         /// <response code = "202" > Updated </response >
+        /// <response code = "400" > BadRequest </response >
         [Route("", Name = "Update_User_Password")]
         [HttpPut]
         public async Task<IActionResult> UpdateUserPassword([FromBody] UserInfoDto userInfoDto)
         {
             var username = User.Identity.Name;
+         
             var existingUserInfoDto = await _service.GetUserByUsernameAsync(username);
             existingUserInfoDto.Password = userInfoDto.Password;
-
-            _service.UpdateUserPasswordAsync(existingUserInfoDto);
+            var result = await _service.UpdateUserPasswordAsync(existingUserInfoDto);
+            if (result != 1) return BadRequest();
             return Accepted();
         }
 
+        /// <summary>
+        ///     Activate Endpoint
+        /// </summary>
+        /// <param name="userInfoDto"></param>
+        /// <response code = "200" > Ok </response >
+        /// <response code = "400" > BadRequest </response >
+        /// <response code = "403" > Forbid </response >
+        /// <response code = "404" > NotFound </response >
         [Route("activate", Name = "Activate_User")]
         [HttpPut, HttpOptions]
         public async Task<IActionResult> Activate([FromBody] UserInfoDto userInfoDto)
         {
-
-            // TODO: check if admin roles
+            
             if (!User.IsInRole("Administrator"))
             {
                 return Forbid();
             }
-
+            
             var username = userInfoDto.Username;
             var existingUserInfoDto = await _service.GetUserByUsernameAsync(username);
             if (existingUserInfoDto == null)
             {
                 return NotFound();
             }
-
+            
             var client = User.Claims.First(x => x.Type == "aud").Value;
-
-            // TODO: ativate on its own app
-            _service.ActivateAsync(existingUserInfoDto, client);
+            
+            var result = await _service.ActivateAsync(existingUserInfoDto, client);
+            if (result != 1) return BadRequest();
             return Ok();
         }
 
+        /// <summary>
+        ///     Dectivate Endpoint
+        /// </summary>
+        /// <param name="userInfoDto"></param>
+        /// <response code = "200" > Ok </response >
+        /// <response code = "403" > Forbid </response >
+        /// <response code = "404" > NotFound </response >
         [Route("deactivate", Name = "Deactivate_User")]
         [HttpPut, HttpOptions]
         public async Task<IActionResult> DeActivate([FromBody] UserInfoDto userInfoDto)
         {
-            // TODO: check if admin roles
             if (!User.IsInRole("Administrator"))
             {
                 return Forbid();
             }
-
-            if (!await _service.CheckUserExsits(userInfoDto.Username))
+            
+            var existingUserInfoDto = await _service.GetUserByUsernameAsync(userInfoDto.Username);
+            if (existingUserInfoDto == null)
             {
                 return NotFound();
             }
-
-            var username = userInfoDto.Username;
-            var existingUserInfoDto = await _service.GetUserByUsernameAsync(username);
+            
             var client = User.Claims.First(x => x.Type == "aud").Value;
-
-            // TODO: ativate on its own app
-            _service.DeActivateAsync(existingUserInfoDto, client);
+            
+            var result = await _service.DeActivateAsync(existingUserInfoDto, client);
+            if (result != 1) return BadRequest();
             return Ok();
         }
     }

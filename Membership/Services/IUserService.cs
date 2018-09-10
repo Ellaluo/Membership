@@ -10,11 +10,10 @@ namespace Membership.Services
     {
         Task<bool> ValidateUserAsync(string username, string password);
         Task<UserInfoDto> CreateUserAsync(UserInfoDto userInfoDto);
-        string GenerateToken(string username);
-        Task<bool> CheckUserExsits(string username);
-        void UpdateUserPasswordAsync(UserInfoDto userInfoDto);
-        void ActivateAsync(UserInfoDto userInfoDto, string clientId);
-        void DeActivateAsync(UserInfoDto userInfoDto, string clientId);
+        string GenerateToken(string username, string client);
+        Task<int> UpdateUserPasswordAsync(UserInfoDto userInfoDto);
+        Task<int> ActivateAsync(UserInfoDto userInfoDto, string clientId);
+        Task<int> DeActivateAsync(UserInfoDto userInfoDto, string clientId);
         Task<UserInfoDto> GetUserByUsernameAsync(string username);
     }
 }

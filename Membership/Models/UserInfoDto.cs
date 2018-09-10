@@ -16,5 +16,6 @@ namespace Membership.Models
         public bool ActivateStatusA { get; set; }
         public bool ActivateStatusB { get; set; }
         public bool ActivateStatusC { get; set; }
+        public string Client { get; set; }
     }
 }
