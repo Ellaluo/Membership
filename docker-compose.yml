@@ -6,3 +6,4 @@ services:
     build:
       context: .
       dockerfile: Membership\Dockerfile
+    container_name: membership-api
